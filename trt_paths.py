@@ -30,6 +30,11 @@ def set_paths():
     assert trt_path is not None, "Was not able to find TensorRT directory. Looked in: " + ", ".join(looked_in)
 
     trt_lib_path = os.path.join(trt_path, "lib")
+    if "LD_LIBRARY_PATH" in os.environ:
+        os.environ["LD_LIBRARY_PATH"] = f'{trt_lib_path}:{os.environ["LD_LIBRARY_PATH"]}'
+    elif os.name == 'posix':
+        os.environ["LD_LIBRARY_PATH"] = trt_lib_path
+
     if trt_lib_path not in os.environ['PATH']:
         os.environ['PATH'] = os.environ['PATH'] + os.pathsep + trt_lib_path
 
