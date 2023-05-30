@@ -20,14 +20,15 @@ You don't need to install CUDA separately.
 
 ## How to use
 
-1. Slect the model you want to optimize and make a picture with it, including needed loras and hypernetworks.
+1. Select the model you want to optimize and make a picture with it, including needed loras and hypernetworks.
 2. Go to a `TensorRT` tab that appears if the extension loads properly.
 3. In `Convert to ONNX` tab, press `Convert Unet to ONNX`.
    * This takes a short while.
+   * It uses up around 6GB of VRAM.
    * After the conversion has finished, you will find an `.onnx` file with model in `models/Unet-onnx` directory.
 4. In `Convert ONNX to TensorRT` tab, configure the necessary parameters (including writing full path to onnx model) and press `Convert ONNX to TensorRT`.
    * This takes very long - from 15 minues to an hour.
-   * This takes up a lot of VRAM: you might want to press "Show command for conversion" and run the command yourself after shutting down webui.
+   * This takes up a lot of VRAM, around 4GB: you might want to press "Show command for conversion" and run the command yourself after shutting down webui.
    * After the conversion has finished, you will find a `.trt` file with model in `models/Unet-trt` directory.
 5. In settings, in `Stable Diffusion` page, use `SD Unet` option to select newly generated TensorRT model.
 6. Generate pictures.
