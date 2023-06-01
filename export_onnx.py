@@ -23,6 +23,9 @@ def export_current_unet_to_onnx(filename, opset_version=17):
 
     os.makedirs(os.path.dirname(filename), exist_ok=True)
 
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    shared.sd_model.model.diffusion_model = shared.sd_model.model.diffusion_model.to(device)
+
     with devices.autocast():
         torch.onnx.export(
             shared.sd_model.model.diffusion_model,
