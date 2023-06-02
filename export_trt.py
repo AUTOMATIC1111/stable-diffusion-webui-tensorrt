@@ -1,7 +1,8 @@
 import os.path
 
 
-def get_trt_command(trt_filename, onnx_filename, min_bs, max_bs, min_token_count, max_token_count, min_width, max_width, min_height, max_height, use_fp16, trt_extra_args):
+def get_trt_command(trt_filename, onnx_filename, min_bs, max_bs, min_token_count, max_token_count, min_width, max_width, min_height, max_height, use_fp16, trt_extra_args, batch_run=False, batch_directory=""):
+    
     for val, name in zip([min_width, max_width, min_height, max_height], ["min_width", "max_width", "min_height", "max_height"]):
         assert val % 64 == 0, name + ' must be a multiple of 64'
 

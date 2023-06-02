@@ -13,17 +13,58 @@ from modules.shared import cmd_opts
 from modules.ui_components import FormRow
 
 
-def export_unet_to_onnx(filename, opset):
-    if not filename:
-        modelname = shared.sd_model.sd_checkpoint_info.model_name + ".onnx"
-        filename = os.path.join(paths_internal.models_path, "Unet-onnx", modelname)
+def export_unet_to_onnx(filename, opset, batch_run, batch_directory):
+    print(f'Starting Conversion to .onnx')
+    if batch_run:
+        print(f"Batch Models mode")  # Debug line
+        for file in os.listdir(batch_directory):
+            print(f"Converting model file: {file}")  # Debug line
+            modelname = os.path.splitext(file)[0] + ".onnx"
+            onnx_filename = os.path.join(paths_internal.models_path, "Unet-onnx", modelname)            
+            print(f"Target ONNX filename: {onnx_filename}")  # Debug line
+            export_onnx.export_current_unet_to_onnx(onnx_filename, opset)
 
-    export_onnx.export_current_unet_to_onnx(filename, opset)
+        return f'Batch conversion completed for files in {batch_directory}', ''
+    else:
+        print(f"Single Model mode")  # Debug line
+        if not filename:
+            modelname = shared.sd_model.sd_checkpoint_info.model_name + ".onnx"
+            filename = os.path.join(paths_internal.models_path, "Unet-onnx", modelname)
+        print(f"Target ONNX filename: {filename}")  # Debug line
+        
+        export_onnx.export_current_unet_to_onnx(filename, opset)
 
-    return f'Saved as {filename}', ''
+        return f'Done! Model saved as {filename}', ''
 
 
-def get_trt_filename(filename, onnx_filename):
+def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *args):
+    assert not cmd_opts.disable_extension_access, "won't run the command to create TensorRT file because extension access is dsabled (use --enable-insecure-extension-access)"
+    print(f'Starting Conversion to .trt')
+    if batch_run:
+        print(f"Batch Models mode")  # Debug line
+        for file in os.listdir(batch_directory):
+            if file.endswith(".onnx"):
+                onnx_file = os.path.join(batch_directory, file)
+                print(f"Converting ONNX file: {onnx_file}")  # Debug line
+                modelname = os.path.splitext(file)[0] + ".trt"
+                filename = os.path.join(paths_internal.models_path, "Unet-trt", modelname)
+
+                trt_filename = get_trt_filename(filename, onnx_file)
+                print(f"Target TRT filename: {trt_filename}")  # Debug line
+                command = export_trt.get_trt_command(trt_filename, onnx_file, *args)
+                launch.run(command, live=True)
+        return f'Batch conversion completed for files in {batch_directory}', ''
+    else:
+        print(f"Single Model mode")  # Debug line
+        filename = get_trt_filename(filename, onnx_filename)
+        print(f"Target TRT filename: {filename}")  # Debug line
+        command = export_trt.get_trt_command(filename, onnx_filename, *args)
+        launch.run(command, live=True)
+
+        return f'Done! Saved as {filename}', ''
+
+
+def get_trt_filename(filename, onnx_filename, *args):
     if filename:
         return filename
 
@@ -60,17 +101,6 @@ Command: <br>
 """
 
 
-def convert_onnx_to_trt(filename, onnx_filename, *args):
-    assert not cmd_opts.disable_extension_access, "won't run the command to create TensorRT file because extension access is dsabled (use --enable-insecure-extension-access)"
-
-    filename = get_trt_filename(filename, onnx_filename)
-    command = export_trt.get_trt_command(filename, onnx_filename, *args)
-
-    launch.run(command, live=True)
-
-    return f'Saved as {filename}', ''
-
-
 def on_ui_tabs():
     with gr.Blocks(analytics_enabled=False) as trt_interface:
         with gr.Row().style(equal_height=False):
@@ -81,6 +111,9 @@ def on_ui_tabs():
 
                         onnx_filename = gr.Textbox(label='Filename', value="", elem_id="onnx_filename", info="Leave empty to use the same name as model and put results into models/Unet-onnx directory")
                         onnx_opset = gr.Number(label='ONNX opset version', precision=0, value=17, info="Leave this alone unless you know what you are doing")
+
+                        batch_run_onnx = gr.Checkbox(label='Run Batch', value=False)
+                        batch_directory_onnx = gr.Textbox(label='Directory', value="", info="Input directory containing models")
 
                         button_export_unet = gr.Button(value="Convert Unet to ONNX", variant='primary', elem_id="onnx_export_unet")
 
@@ -109,6 +142,9 @@ def on_ui_tabs():
                         with FormRow(elem_classes="checkboxes-row", variant="compact"):
                             use_fp16 = gr.Checkbox(label='Use half floats', value=True, elem_id="trt_fp16")
 
+                        batch_run_trt = gr.Checkbox(label='Run Batch', value=False)
+                        batch_directory_trt = gr.Textbox(label='Directory', value="", info="Input directory containing models")
+
                         button_export_trt = gr.Button(value="Convert ONNX to TensorRT", variant='primary', elem_id="trt_convert_from_onnx")
                         button_show_trt_command = gr.Button(value="Show command for conversion", variant='secondary', elem_id="trt_convert_from_onnx")
 
@@ -118,13 +154,13 @@ def on_ui_tabs():
 
         button_export_unet.click(
             wrap_gradio_gpu_call(export_unet_to_onnx, extra_outputs=["Conversion failed"]),
-            inputs=[onnx_filename, onnx_opset],
+            inputs=[onnx_filename, onnx_opset, batch_run_onnx, batch_directory_onnx],
             outputs=[trt_result, trt_info],
         )
 
         button_export_trt.click(
             wrap_gradio_gpu_call(convert_onnx_to_trt, extra_outputs=[""]),
-            inputs=[trt_filename, trt_source_filename, min_bs, max_bs, min_token_count, max_token_count, min_width, max_width, min_height, max_height, use_fp16, trt_extra_args],
+            inputs=[trt_filename, trt_source_filename, batch_run_trt, batch_directory_trt, min_bs, max_bs, min_token_count, max_token_count, min_width, max_width, min_height, max_height, use_fp16, trt_extra_args],
             outputs=[trt_result, trt_info],
         )
 
@@ -135,4 +171,3 @@ def on_ui_tabs():
         )
 
     return [(trt_interface, "TensorRT", "tensorrt")]
-
