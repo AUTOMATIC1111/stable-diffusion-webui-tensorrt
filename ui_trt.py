@@ -19,6 +19,7 @@ def export_unet_to_onnx(filename, opset, batch_run, batch_directory):
     if not batch_directory:
         batch_directory = os.path.join(paths_internal.models_path, "Stable-diffusion")
     if batch_run:
+        filename = ""
         print(f"--Batch Models mode--")  # Debug line
         
         # Check if 'Unet-onnx' directory exists and create it if not
@@ -67,10 +68,11 @@ def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *ar
     if not batch_directory:
         batch_directory = os.path.join(paths_internal.models_path, "Unet-onnx") 
     if batch_run:
+        onnx_filename = ""
         print(f"--Batch Models mode--")  # Debug line
         
-        # Check if 'Unet-onnx' directory exists and create it if not
-        unet_onnx_path = os.path.join(paths_internal.models_path, "Unet-onnx")        
+        # Check if 'Unet-trt' directory exists and create it if not
+        unet_onnx_path = os.path.join(paths_internal.models_path, "Unet-trt")        
         os.makedirs(unet_onnx_path, exist_ok=True)
         
         trt_files = os.listdir(os.path.join(paths_internal.models_path, "Unet-trt"))
