@@ -16,37 +16,43 @@ from modules.ui_components import FormRow
 def export_unet_to_onnx(filename, opset, batch_run, batch_directory):
     print(f'Starting Conversion to .onnx')
     
+    if not batch_directory:
+        batch_directory = os.path.join(paths_internal.models_path, "Stable-diffusion")
     if batch_run:
-        print(f"Batch Models mode")  # Debug line
+        print(f"--Batch Models mode--")  # Debug line
         
         # Check if 'Unet-onnx' directory exists and create it if not
-        unet_onnx_path = os.path.join(paths_internal.models_path, "Unet-onnx")
+        unet_onnx_path = os.path.join(paths_internal.models_path, "Unet-onnx")        
         os.makedirs(unet_onnx_path, exist_ok=True)
     
         onnx_files = os.listdir(os.path.join(paths_internal.models_path, "Unet-onnx/"))
         onnx_files_to_process = list()
-        for batch_file in os.listdir(batch_directory):
-            add_flag = True
-            for onnx_file in onnx_files:
-                if batch_file.split('.')[0] == onnx_file.split('.')[0]:
-                    add_flag = False
-            if add_flag and (batch_file.endswith(".safetensors") or batch_file.endswith(".ckpt")):
-                onnx_files_to_process.append(batch_file)
-        print(onnx_files_to_process)
+        if not onnx_files:
+            print(f"onnx_files is empty, adding all .safetensors and .ckpt files from batch_directory")
+            onnx_files_to_process = [file for file in os.listdir(batch_directory) if file.endswith(".safetensors") or file.endswith(".ckpt")]
+        else:
+            for batch_file in os.listdir(batch_directory):
+                add_flag = True
+                for onnx_file in onnx_files:
+                    if batch_file.split('.')[0] == onnx_file.split('.')[0]:
+                        add_flag = False
+                if add_flag and (batch_file.endswith(".safetensors") or batch_file.endswith(".ckpt")):
+                    onnx_files_to_process.append(batch_file)
+        print(f"Files to process: {onnx_files_to_process}")
         for file in onnx_files_to_process:
             print(f"Converting model file: {file}")  # Debug line
             modelname = os.path.splitext(file)[0] + ".onnx"
-            onnx_filename = os.path.join(paths_internal.models_path, "Unet-onnx", modelname)            
+            onnx_filename = os.path.join(batch_directory, modelname)            
             print(f"Target ONNX filename: {onnx_filename}")  # Debug line
             
             export_onnx.export_current_unet_to_onnx(onnx_filename, opset)
 
         return f'Batch conversion completed for files in {batch_directory}', ''
     else:
-        print(f"Single Model mode")  # Debug line
+        print(f"--Single Model mode--")  # Debug line
         if not filename:
             modelname = shared.sd_model.sd_checkpoint_info.model_name + ".onnx"
-            filename = os.path.join(paths_internal.models_path, "Unet-onnx", modelname)
+            filename = os.path.join(batch_directory, modelname)
         print(f"Target ONNX filename: {filename}")  # Debug line
         
         export_onnx.export_current_unet_to_onnx(filename, opset)
@@ -57,22 +63,43 @@ def export_unet_to_onnx(filename, opset, batch_run, batch_directory):
 def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *args):
     assert not cmd_opts.disable_extension_access, "won't run the command to create TensorRT file because extension access is dsabled (use --enable-insecure-extension-access)"
     print(f'Starting Conversion to .trt')
+    
+    if not batch_directory:
+        batch_directory = os.path.join(paths_internal.models_path, "Unet-onnx") 
     if batch_run:
-        print(f"Batch Models mode")  # Debug line
-        for file in os.listdir(batch_directory):
-            if file.endswith(".onnx"):
-                onnx_file = os.path.join(batch_directory, file)
-                print(f"Converting ONNX file: {onnx_file}")  # Debug line
-                modelname = os.path.splitext(file)[0] + ".trt"
-                filename = os.path.join(paths_internal.models_path, "Unet-trt", modelname)
+        print(f"--Batch Models mode--")  # Debug line
+        
+        # Check if 'Unet-onnx' directory exists and create it if not
+        unet_onnx_path = os.path.join(paths_internal.models_path, "Unet-onnx")        
+        os.makedirs(unet_onnx_path, exist_ok=True)
+        
+        trt_files = os.listdir(os.path.join(paths_internal.models_path, "Unet-trt"))
+        trt_files_to_process = list()
+        if not trt_files:
+            print(f"trt_files is empty, adding all .onnx files from batch_directory")
+            trt_files_to_process = [file for file in os.listdir(batch_directory) if file.endswith(".onnx")]
+        else:
+            for batch_file in os.listdir(batch_directory):
+                add_flag = True
+                for trt_file in trt_files:
+                    if batch_file.split('.')[0] == trt_file.split('.')[0]:
+                        add_flag = False
+                if add_flag and batch_file.endswith(".onnx"):
+                    trt_files_to_process.append(batch_file)
+        print(f"Files to process: {trt_files_to_process}")
+        for file in trt_files_to_process:
+            onnx_file = os.path.join(batch_directory, file)
+            print(f"Converting ONNX file: {onnx_file}")  # Debug line
+            modelname = os.path.splitext(file)[0] + ".trt"
+            filename = os.path.join(paths_internal.models_path, "Unet-trt", modelname)
 
-                trt_filename = get_trt_filename(filename, onnx_file)
-                print(f"Target TRT filename: {trt_filename}")  # Debug line
-                command = export_trt.get_trt_command(trt_filename, onnx_file, *args)
-                launch.run(command, live=True)
+            trt_filename = get_trt_filename(filename, onnx_file)
+            print(f"Target TRT filename: {trt_filename}")  # Debug line
+            command = export_trt.get_trt_command(trt_filename, onnx_file, *args)
+            launch.run(command, live=True)
         return f'Batch conversion completed for files in {batch_directory}', ''
     else:
-        print(f"Single Model mode")  # Debug line
+        print(f"--Single Model mode--")  # Debug line
         filename = get_trt_filename(filename, onnx_filename)
         print(f"Target TRT filename: {filename}")  # Debug line
         command = export_trt.get_trt_command(filename, onnx_filename, *args)
@@ -141,7 +168,7 @@ def on_ui_tabs():
                         onnx_opset = gr.Number(label='ONNX opset version', precision=0, value=17, info="Leave this alone unless you know what you are doing")
 
                         batch_run_onnx = gr.Checkbox(label='Run Batch', value=False)
-                        batch_directory_onnx = gr.Textbox(label='Directory', value="", info="Input directory containing models")
+                        batch_directory_onnx = gr.Textbox(label='Directory', value="", info="Input directory containing models. Leave empty to use the default 'models/Stable-diffusion' folder as source.")
 
                         button_export_unet = gr.Button(value="Convert Unet to ONNX", variant='primary', elem_id="onnx_export_unet")
 
@@ -176,7 +203,7 @@ def on_ui_tabs():
                             use_fp16 = gr.Checkbox(label='Use half floats', value=True, elem_id="trt_fp16")
 
                         batch_run_trt = gr.Checkbox(label='Run Batch', value=False)
-                        batch_directory_trt = gr.Textbox(label='Directory', value="", info="Input directory containing models")
+                        batch_directory_trt = gr.Textbox(label='Directory', value="", info="Input directory containing models. Leave empty to use the default 'models/Unet-onnx' folder as source.")
 
                         button_export_trt = gr.Button(value="Convert ONNX to TensorRT", variant='primary', elem_id="trt_convert_from_onnx")
                         button_show_trt_command = gr.Button(value="Show command for conversion", variant='secondary', elem_id="trt_convert_from_onnx")
@@ -212,3 +239,4 @@ def on_ui_tabs():
         )
 
     return [(trt_interface, "TensorRT", "tensorrt")]
+    
