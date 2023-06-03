@@ -15,13 +15,30 @@ from modules.ui_components import FormRow
 
 def export_unet_to_onnx(filename, opset, batch_run, batch_directory):
     print(f'Starting Conversion to .onnx')
+    
     if batch_run:
         print(f"Batch Models mode")  # Debug line
-        for file in os.listdir(batch_directory):
+        
+        # Check if 'Unet-onnx' directory exists and create it if not
+        unet_onnx_path = os.path.join(paths_internal.models_path, "Unet-onnx")
+        os.makedirs(unet_onnx_path, exist_ok=True)
+    
+        onnx_files = os.listdir(os.path.join(paths_internal.models_path, "Unet-onnx/"))
+        onnx_files_to_process = list()
+        for batch_file in os.listdir(batch_directory):
+            add_flag = True
+            for onnx_file in onnx_files:
+                if batch_file.split('.')[0] == onnx_file.split('.')[0]:
+                    add_flag = False
+            if add_flag and (batch_file.endswith(".safetensors") or batch_file.endswith(".ckpt")):
+                onnx_files_to_process.append(batch_file)
+        print(onnx_files_to_process)
+        for file in onnx_files_to_process:
             print(f"Converting model file: {file}")  # Debug line
             modelname = os.path.splitext(file)[0] + ".onnx"
             onnx_filename = os.path.join(paths_internal.models_path, "Unet-onnx", modelname)            
             print(f"Target ONNX filename: {onnx_filename}")  # Debug line
+            
             export_onnx.export_current_unet_to_onnx(onnx_filename, opset)
 
         return f'Batch conversion completed for files in {batch_directory}', ''
@@ -101,6 +118,17 @@ Command: <br>
 """
 
 
+def calculate_and_check_constraints(max_width, max_height, max_batch_size):
+    B = max_batch_size * 2
+    unknown = 4
+    H = max_height / 8
+    W = max_width / 8
+
+    calculated_value = int(B * unknown * H * W)
+
+    return f"{calculated_value} / 92160", ""
+
+
 def on_ui_tabs():
     with gr.Blocks(analytics_enabled=False) as trt_interface:
         with gr.Row().style(equal_height=False):
@@ -137,6 +165,11 @@ def on_ui_tabs():
                             min_token_count = gr.Slider(minimum=75, maximum=750, step=75, label="Minimum prompt token count", value=75, elem_id="trt_min_token_count")
                             max_token_count = gr.Slider(minimum=75, maximum=750, step=75, label="Maximum prompt token count", value=75, elem_id="trt_max_token_count")
 
+                        button_check_constraints = gr.Button(value="Calculate values limit for conversion", variant='secondary', elem_id="calculate")
+                                                
+                        with gr.Column(elem_id="trt_calculated_value"):
+                            calculated_value_label = gr.Label(elem_id="calculated_value", value="32768 / 92160", label="Current Value / Limit", show_label=True)
+
                         trt_extra_args = gr.Textbox(label='Extra arguments', value="", elem_id="trt_extra_args", info="Extra arguments for trtexec command in plain text form")
 
                         with FormRow(elem_classes="checkboxes-row", variant="compact"):
@@ -151,11 +184,19 @@ def on_ui_tabs():
             with gr.Column(variant='panel'):
                 trt_result = gr.Label(elem_id="trt_result", value="", show_label=False)
                 trt_info = gr.HTML(elem_id="trt_info", value="")
+                button_check_constraints
+                calculated_value_label
 
         button_export_unet.click(
             wrap_gradio_gpu_call(export_unet_to_onnx, extra_outputs=["Conversion failed"]),
             inputs=[onnx_filename, onnx_opset, batch_run_onnx, batch_directory_onnx],
             outputs=[trt_result, trt_info],
+        )
+
+        button_check_constraints.click(
+            wrap_gradio_gpu_call(calculate_and_check_constraints, extra_outputs=[""]),
+            inputs=[max_width, max_height, max_bs],
+            outputs=[calculated_value_label, trt_info],
         )
 
         button_export_trt.click(
