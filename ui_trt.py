@@ -118,21 +118,26 @@ def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *ar
             trt_filename = get_trt_filename(filename, onnx_file, batch_run)
             print(f"Target TRT filename: {trt_filename}\n")  # Debug line
             command = export_trt.get_trt_command(trt_filename, onnx_file, *args)
+            
             launch.run(command, live=True)
+            
         # Ending message
         print(f'Batch conversion completed for files in {batch_directory}')
         return f'Batch conversion completed for files in {batch_directory}', ''
     # Single mode
     else:
         print(f"--Single Model mode--")
-        filename = get_trt_filename(filename, onnx_filename)
-        print(f"Target TRT filename: {filename}\n")  # Debug line
-        command = export_trt.get_trt_command(filename, onnx_filename, *args)
+        modelname = os.path.splitext(os.path.basename(onnx_filename))[0] + ".trt"
+        filename = os.path.join(paths_internal.models_path, "Unet-trt", modelname)
+        trt_filename = get_trt_filename(filename, onnx_filename)
+        print(f"Target TRT filename: {trt_filename}\n")  # Debug line
+        command = export_trt.get_trt_command(trt_filename, onnx_filename, *args)
+        
         launch.run(command, live=True)
 
         # Ending message
-        print(f'Done! Model saved as {filename}')
-        return f'Done! Model saved as {filename}', ''
+        print(f'Done! Model saved as {trt_filename}')
+        return f'Done! Model saved as {trt_filename}', ''
 
 
 def get_trt_filename(filename, onnx_filename, batch_run=False, *args):
