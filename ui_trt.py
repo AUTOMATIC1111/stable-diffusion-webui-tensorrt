@@ -1,3 +1,4 @@
+import asyncio
 import html
 import os
 
@@ -5,6 +6,7 @@ import launch
 import trt_paths
 from modules import script_callbacks, paths_internal, shared
 import gradio as gr
+
 
 import export_onnx
 import export_trt
@@ -16,8 +18,10 @@ from modules.ui_components import FormRow
 def export_unet_to_onnx(filename, opset, batch_run, batch_directory):
     print(f'Starting Conversion to .onnx')
     
+    # Use default folder if batch_directory is empty
     if not batch_directory:
         batch_directory = os.path.join(paths_internal.models_path, "Stable-diffusion")
+    # Batch mode
     if batch_run:
         print(f"--Batch Models mode--")
         
@@ -27,6 +31,7 @@ def export_unet_to_onnx(filename, opset, batch_run, batch_directory):
     
         onnx_files = os.listdir(os.path.join(paths_internal.models_path, "Unet-onnx"))
         onnx_files_to_process = list()
+        # Take all files if destination folder is empty
         if not onnx_files:
             print(f"Unet-onnx is empty, adding all .safetensors and .ckpt files from {batch_directory}\n")  # Debug line
             onnx_files_to_process = [file for file in os.listdir(batch_directory) if file.endswith(".safetensors") or file.endswith(".ckpt")]
@@ -39,21 +44,27 @@ def export_unet_to_onnx(filename, opset, batch_run, batch_directory):
                 if add_flag and (batch_file.endswith(".safetensors") or batch_file.endswith(".ckpt")):
                     onnx_files_to_process.append(batch_file)
         print(f"Files to process:\n{onnx_files_to_process}\n")
+        # Exit if no files to process
+        if not onnx_files_to_process:
+            print("No files to convert...\nPlease uncheck the 'Run Batch' checkbox or use a folder containing models.")
+            return "No files to convert... Stopping the conversion...", ''
+        # Process files
         for file in onnx_files_to_process:
             print(f"Converting model file: {file}")  # Debug line
             modelname = os.path.splitext(file)[0] + ".onnx"
             onnx_filename = os.path.join(unet_onnx_path, modelname)            
-            print(f"Target ONNX filename: {onnx_filename}")  # Debug line
+            print(f"Target ONNX filename: {onnx_filename}\n")  # Debug line
             
             export_onnx.export_current_unet_to_onnx(onnx_filename, opset)
 
         return f'Batch conversion completed for files in {batch_directory}', ''
+    # Single mode
     else:
         print(f"--Single Model mode--")
         if not filename:
             modelname = shared.sd_model.sd_checkpoint_info.model_name + ".onnx"
             filename = os.path.join(batch_directory, modelname)
-        print(f"Target ONNX filename: {filename}")  # Debug line
+        print(f"Target ONNX filename: {filename}\n")  # Debug line
         
         export_onnx.export_current_unet_to_onnx(filename, opset)
 
@@ -64,8 +75,10 @@ def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *ar
     assert not cmd_opts.disable_extension_access, "Won't run the command to create TensorRT file because extension access is disabled (use --enable-insecure-extension-access)"
     print(f'Starting Conversion to .trt')
     
+    # Use default folder if batch_directory is empty
     if not batch_directory:
-        batch_directory = os.path.join(paths_internal.models_path, "Unet-onnx") 
+        batch_directory = os.path.join(paths_internal.models_path, "Unet-onnx")
+    # Batch mode
     if batch_run:
         print(f"--Batch Models mode--")
         
@@ -75,6 +88,7 @@ def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *ar
         
         trt_files = os.listdir(os.path.join(paths_internal.models_path, "Unet-trt"))
         trt_files_to_process = list()
+        # Take all files if destination folder is empty
         if not trt_files:
             print(f"Unet-trt is empty, adding all .onnx files from {batch_directory}\n")  # Debug line
             trt_files_to_process = [file for file in os.listdir(batch_directory) if file.endswith(".onnx")]
@@ -87,6 +101,11 @@ def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *ar
                 if add_flag and batch_file.endswith(".onnx"):
                     trt_files_to_process.append(batch_file)
         print(f"Files to process:\n{trt_files_to_process}\n")
+        # Exit if no files to process
+        if not trt_files_to_process:
+            print("No files to convert...\nPlease uncheck the 'Run Batch' checkbox or use a folder containing models.")
+            return "No files to convert. Stopping the conversion...", ''
+        # Process files
         for file in trt_files_to_process:
             onnx_file = os.path.join(batch_directory, file)
             print(f"Converting ONNX file: {onnx_file}")  # Debug line
@@ -94,14 +113,15 @@ def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *ar
             filename = os.path.join(paths_internal.models_path, "Unet-trt", modelname)
 
             trt_filename = get_trt_filename(filename, onnx_file, batch_run)
-            print(f"Target TRT filename: {trt_filename}")  # Debug line
+            print(f"Target TRT filename: {trt_filename}\n")  # Debug line
             command = export_trt.get_trt_command(trt_filename, onnx_file, *args)
             launch.run(command, live=True)
         return f'Batch conversion completed for files in {batch_directory}', ''
+    # Single mode
     else:
         print(f"--Single Model mode--")
         filename = get_trt_filename(filename, onnx_filename)
-        print(f"Target TRT filename: {filename}")  # Debug line
+        print(f"Target TRT filename: {filename}\n")  # Debug line
         command = export_trt.get_trt_command(filename, onnx_filename, *args)
         launch.run(command, live=True)
 
@@ -145,7 +165,7 @@ Command: <br>
 """
 
 
-def calculate_and_check_constraints(max_width, max_height, max_batch_size):
+async def calculate_and_check_constraints(max_width, max_height, max_batch_size):
     B = max_batch_size * 2
     unknown = 4
     H = max_height / 8
@@ -154,6 +174,12 @@ def calculate_and_check_constraints(max_width, max_height, max_batch_size):
     calculated_value = int(B * unknown * H * W)
 
     return f"{calculated_value} / 92160", ""
+
+
+def on_button_clicked(max_width, max_height, max_bs):
+    loop = asyncio.get_event_loop()
+    calculated_value, _ = loop.run_until_complete(calculate_and_check_constraints(max_width, max_height, max_bs))
+    return calculated_value, ""
 
 
 def on_ui_tabs():
@@ -221,7 +247,7 @@ def on_ui_tabs():
         )
 
         button_check_constraints.click(
-            wrap_gradio_gpu_call(calculate_and_check_constraints, extra_outputs=[""]),
+            on_button_clicked,
             inputs=[max_width, max_height, max_bs],
             outputs=[calculated_value_label, trt_info],
         )
