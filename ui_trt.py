@@ -42,7 +42,7 @@ def export_unet_to_onnx(filename, opset, batch_run, batch_directory):
         for file in onnx_files_to_process:
             print(f"Converting model file: {file}")  # Debug line
             modelname = os.path.splitext(file)[0] + ".onnx"
-            onnx_filename = os.path.join(batch_directory, modelname)            
+            onnx_filename = os.path.join(unet_onnx_path, modelname)            
             print(f"Target ONNX filename: {onnx_filename}")  # Debug line
             
             export_onnx.export_current_unet_to_onnx(onnx_filename, opset)
