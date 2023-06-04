@@ -45,8 +45,8 @@ def export_unet_to_onnx(filename, opset, batch_run, batch_directory):
         print(f"Files to process:\n{onnx_files_to_process}\n")
         # Exit if no files to process
         if not onnx_files_to_process:
-            print("No files to convert...\nPlease uncheck the 'Run Batch' checkbox or use a folder containing models.")
-            return
+            print(f'No files to convert...\nPlease uncheck the "Run Batch" checkbox or use a folder containing models.')
+            return f'No files to convert...\nPlease uncheck the "Run Batch" checkbox or use a folder containing models.', ''
         # Process files
         for i, file in enumerate(onnx_files_to_process):
             print(f"Converting model file: {file}")  # Debug line
@@ -58,7 +58,7 @@ def export_unet_to_onnx(filename, opset, batch_run, batch_directory):
             
         # Ending message
         print(f'Batch conversion completed for files in {batch_directory}')
-        return
+        return f'Batch conversion completed for files in {batch_directory}', ''
     # Single mode
     else:
         print(f"--Single Model mode--")
@@ -71,7 +71,7 @@ def export_unet_to_onnx(filename, opset, batch_run, batch_directory):
 
         # Ending message
         print(f'Done! Model saved as {onnx_filename}')
-        return
+        return f'Done! Model saved as {onnx_filename}', ''
 
 
 def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *args):
@@ -106,8 +106,8 @@ def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *ar
         print(f"Files to process:\n{trt_files_to_process}\n")
         # Exit if no files to process
         if not trt_files_to_process:
-            print("No files to convert...\nPlease uncheck the 'Run Batch' checkbox or use a folder containing models.")
-            return
+            print(f'No files to convert...\nPlease uncheck the "Run Batch" checkbox or use a folder containing models.')
+            return f'No files to convert...\nPlease uncheck the "Run Batch" checkbox or use a folder containing models.', ''
         # Process files
         for file in trt_files_to_process:
             onnx_file = os.path.join(batch_directory, file)
@@ -121,7 +121,7 @@ def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *ar
             launch.run(command, live=True)
         # Ending message
         print(f'Batch conversion completed for files in {batch_directory}')
-        return
+        return f'Batch conversion completed for files in {batch_directory}', ''
     # Single mode
     else:
         print(f"--Single Model mode--")
@@ -132,7 +132,7 @@ def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *ar
 
         # Ending message
         print(f'Done! Model saved as {filename}')
-        return
+        return f'Done! Model saved as {filename}', ''
 
 
 def get_trt_filename(filename, onnx_filename, batch_run=False, *args):
