@@ -70,7 +70,7 @@ def export_unet_to_onnx(filename, opset, batch_run, batch_directory):
         export_onnx.export_current_unet_to_onnx(onnx_filename, opset)
 
         # Ending message
-        print(f'Done! Model saved as {filename}')
+        print(f'Done! Model saved as {onnx_filename}')
         return
 
 
