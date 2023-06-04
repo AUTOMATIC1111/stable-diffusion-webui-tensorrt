@@ -7,7 +7,6 @@ import trt_paths
 from modules import script_callbacks, paths_internal, shared
 import gradio as gr
 
-
 import export_onnx
 import export_trt
 from modules.call_queue import wrap_gradio_gpu_call
@@ -26,7 +25,7 @@ def export_unet_to_onnx(filename, opset, batch_run, batch_directory):
         print(f"--Batch Models mode--")
         
         # Check if 'Unet-onnx' directory exists and create it if not
-        unet_onnx_path = os.path.join(paths_internal.models_path, "Unet-onnx")        
+        unet_onnx_path = os.path.join(paths_internal.models_path, "Unet-onnx")
         os.makedirs(unet_onnx_path, exist_ok=True)
     
         onnx_files = os.listdir(os.path.join(paths_internal.models_path, "Unet-onnx"))
@@ -47,28 +46,32 @@ def export_unet_to_onnx(filename, opset, batch_run, batch_directory):
         # Exit if no files to process
         if not onnx_files_to_process:
             print("No files to convert...\nPlease uncheck the 'Run Batch' checkbox or use a folder containing models.")
-            return "No files to convert... Stopping the conversion...", ''
+            return
         # Process files
-        for file in onnx_files_to_process:
+        for i, file in enumerate(onnx_files_to_process):
             print(f"Converting model file: {file}")  # Debug line
             modelname = os.path.splitext(file)[0] + ".onnx"
-            onnx_filename = os.path.join(unet_onnx_path, modelname)            
+            onnx_filename = os.path.join(unet_onnx_path, modelname)
             print(f"Target ONNX filename: {onnx_filename}\n")  # Debug line
             
             export_onnx.export_current_unet_to_onnx(onnx_filename, opset)
-
-        return f'Batch conversion completed for files in {batch_directory}', ''
+            
+        # Ending message
+        print(f'Batch conversion completed for files in {batch_directory}')
+        return
     # Single mode
     else:
         print(f"--Single Model mode--")
         if not filename:
             modelname = shared.sd_model.sd_checkpoint_info.model_name + ".onnx"
-            filename = os.path.join(batch_directory, modelname)
-        print(f"Target ONNX filename: {filename}\n")  # Debug line
+            onnx_filename = os.path.join(unet_onnx_path, modelname)
+        print(f"Target ONNX filename: {onnx_filename}\n")  # Debug line
         
-        export_onnx.export_current_unet_to_onnx(filename, opset)
+        export_onnx.export_current_unet_to_onnx(onnx_filename, opset)
 
-        return f'Done! Model saved as {filename}', ''
+        # Ending message
+        print(f'Done! Model saved as {filename}')
+        return
 
 
 def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *args):
@@ -83,7 +86,7 @@ def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *ar
         print(f"--Batch Models mode--")
         
         # Check if 'Unet-trt' directory exists and create it if not
-        unet_onnx_path = os.path.join(paths_internal.models_path, "Unet-trt")        
+        unet_onnx_path = os.path.join(paths_internal.models_path, "Unet-trt")
         os.makedirs(unet_onnx_path, exist_ok=True)
         
         trt_files = os.listdir(os.path.join(paths_internal.models_path, "Unet-trt"))
@@ -104,7 +107,7 @@ def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *ar
         # Exit if no files to process
         if not trt_files_to_process:
             print("No files to convert...\nPlease uncheck the 'Run Batch' checkbox or use a folder containing models.")
-            return "No files to convert. Stopping the conversion...", ''
+            return
         # Process files
         for file in trt_files_to_process:
             onnx_file = os.path.join(batch_directory, file)
@@ -116,7 +119,9 @@ def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *ar
             print(f"Target TRT filename: {trt_filename}\n")  # Debug line
             command = export_trt.get_trt_command(trt_filename, onnx_file, *args)
             launch.run(command, live=True)
-        return f'Batch conversion completed for files in {batch_directory}', ''
+        # Ending message
+        print(f'Batch conversion completed for files in {batch_directory}')
+        return
     # Single mode
     else:
         print(f"--Single Model mode--")
@@ -125,7 +130,9 @@ def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *ar
         command = export_trt.get_trt_command(filename, onnx_filename, *args)
         launch.run(command, live=True)
 
-        return f'Done! Saved as {filename}', ''
+        # Ending message
+        print(f'Done! Model saved as {filename}')
+        return
 
 
 def get_trt_filename(filename, onnx_filename, batch_run=False, *args):
