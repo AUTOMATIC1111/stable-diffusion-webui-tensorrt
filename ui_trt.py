@@ -99,7 +99,15 @@ def convert_onnx_to_trt(filename, onnx_filename, add_shape_to_filename, batch_ru
             for batch_file in os.listdir(batch_directory):
                 add_flag = True
                 for trt_file in trt_files:
-                    if batch_file.split('.')[0] == trt_file.split('.')[0]:
+                    size = len(trt_file.split('_'))
+                    trt_file_shape = ""
+                    for tokens in trt_file.split('_'):
+                        if size > 1:
+                            trt_file_shape += tokens
+                            if size > 2:
+                                trt_file_shape += '_'
+                        size -= 1
+                    if batch_file.split('.')[0] == trt_file.split('.')[0] or batch_file.split('.')[0] == trt_file_shape:
                         add_flag = False
                 if add_flag and batch_file.endswith(".onnx"):
                     trt_files_to_process.append(batch_file)
@@ -140,9 +148,10 @@ def convert_onnx_to_trt(filename, onnx_filename, add_shape_to_filename, batch_ru
 
 def get_trt_filename(filename, onnx_filename, batch_run=False, add_shape_to_filename=False, *args):
     modelname = os.path.splitext(os.path.basename(onnx_filename))[0];
-    #print("args: ", args) # args:  (1, 1, 75, 750, 512, 768, 512, 960, True, '')
+    print("Shape args: ", args) # args:  (1, 1, 75, 750, 512, 768, 512, 960, True, '')
+    #({0}min_bs, {1}max_bs, {2}min_token_count, {3}max_token_count, {4}min_width, {5}max_width, {6}min_height, {7}max_height, {8}use_fp16, {9}trt_extra_args)
     if(add_shape_to_filename):
-        modelname += f'_{args[1]}x{args[5]}x{args[6]}' + ".trt"
+        modelname += f'_{args[1]}x{args[5]}x{args[7]}' + ".trt"
     else:
         modelname += ".trt"
     if batch_run:
