@@ -74,7 +74,7 @@ def export_unet_to_onnx(filename, opset, batch_run, batch_directory):
         return f'Done! Model saved as {onnx_filename}', ''
 
 
-def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *args):
+def convert_onnx_to_trt(filename, onnx_filename, add_shape_to_filename, batch_run, batch_directory, *args):
     assert not cmd_opts.disable_extension_access, "Won't run the command to create TensorRT file because extension access is disabled (use --enable-insecure-extension-access)"
     print(f'Starting Conversion to .trt')
     
@@ -115,7 +115,7 @@ def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *ar
             modelname = os.path.splitext(file)[0] + ".trt"
             filename = os.path.join(paths_internal.models_path, "Unet-trt", modelname)
 
-            trt_filename = get_trt_filename(filename, onnx_file, batch_run)
+            trt_filename = get_trt_filename(filename, onnx_file, batch_run, add_shape_to_filename)
             print(f"Target TRT filename: {trt_filename}\n")  # Debug line
             command = export_trt.get_trt_command(trt_filename, onnx_file, *args)
             
@@ -127,9 +127,7 @@ def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *ar
     # Single mode
     else:
         print(f"--Single Model mode--")
-        modelname = os.path.splitext(os.path.basename(onnx_filename))[0] + ".trt"
-        filename = os.path.join(paths_internal.models_path, "Unet-trt", modelname)
-        trt_filename = get_trt_filename(filename, onnx_filename)
+        trt_filename = get_trt_filename(filename, onnx_filename, add_shape_to_filename, *args)
         print(f"Target TRT filename: {trt_filename}\n")  # Debug line
         command = export_trt.get_trt_command(trt_filename, onnx_filename, *args)
         
@@ -140,12 +138,18 @@ def convert_onnx_to_trt(filename, onnx_filename, batch_run, batch_directory, *ar
         return f'Done! Model saved as {trt_filename}', ''
 
 
-def get_trt_filename(filename, onnx_filename, batch_run=False, *args):
-    if batch_run:
-        modelname = os.path.splitext(os.path.basename(onnx_filename))[0] + ".trt"
-        return os.path.join(paths_internal.models_path, "Unet-trt", modelname)
+def get_trt_filename(filename, onnx_filename, batch_run=False, add_shape_to_filename=False, *args):
+    modelname = os.path.splitext(os.path.basename(onnx_filename))[0];
+    #print("args: ", args) # args:  (1, 1, 75, 750, 512, 768, 512, 960, True, '')
+    if(add_shape_to_filename):
+        modelname += f'_{args[1]}x{args[5]}x{args[6]}' + ".trt"
     else:
+        modelname += ".trt"
+    if batch_run:
+        return os.path.join(paths_internal.models_path, "Unet-trt", modelname)
+    if filename:
         return filename
+    return os.path.join(paths_internal.models_path, "Unet-trt", modelname)
 
 
 def get_trt_command(filename, onnx_filename, *args):
@@ -213,7 +217,8 @@ def on_ui_tabs():
                     with gr.Tab(label="Convert ONNX to TensorRT"):
                         trt_source_filename = gr.Textbox(label='Onnx model filename', value="", elem_id="trt_source_filename")
                         trt_filename = gr.Textbox(label='Output filename', value="", elem_id="trt_filename", info="Leave empty to use the same name as onnx and put results into models/Unet-trt directory")
-
+                        add_shape_to_filename = gr.Checkbox(label='Add Shape to end of filename', value=False)
+                    
                         with gr.Column(elem_id="trt_width"):
                             min_width = gr.Slider(minimum=64, maximum=2048, step=64, label="Minimum width", value=512, elem_id="trt_min_width")
                             max_width = gr.Slider(minimum=64, maximum=2048, step=64, label="Maximum width", value=512, elem_id="trt_max_width")
@@ -266,7 +271,7 @@ def on_ui_tabs():
 
         button_export_trt.click(
             wrap_gradio_gpu_call(convert_onnx_to_trt, extra_outputs=[""]),
-            inputs=[trt_filename, trt_source_filename, batch_run_trt, batch_directory_trt, min_bs, max_bs, min_token_count, max_token_count, min_width, max_width, min_height, max_height, use_fp16, trt_extra_args],
+            inputs=[trt_filename, trt_source_filename, add_shape_to_filename, batch_run_trt, batch_directory_trt, min_bs, max_bs, min_token_count, max_token_count, min_width, max_width, min_height, max_height, use_fp16, trt_extra_args],
             outputs=[trt_result, trt_info],
         )
 
