@@ -115,7 +115,7 @@ def convert_onnx_to_trt(filename, onnx_filename, add_shape_to_filename, batch_ru
             modelname = os.path.splitext(file)[0] + ".trt"
             filename = os.path.join(paths_internal.models_path, "Unet-trt", modelname)
 
-            trt_filename = get_trt_filename(filename, onnx_file, batch_run, add_shape_to_filename)
+            trt_filename = get_trt_filename(filename, onnx_file, batch_run, add_shape_to_filename, *args)
             print(f"Target TRT filename: {trt_filename}\n")  # Debug line
             command = export_trt.get_trt_command(trt_filename, onnx_file, *args)
             
