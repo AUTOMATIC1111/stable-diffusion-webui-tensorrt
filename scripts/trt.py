@@ -9,6 +9,7 @@ import trt_paths
 import ui_trt
 
 import pycuda.driver as cuda
+from tensorrt import Dims
 
 
 class TrtUnetOption(sd_unet.SdUnetOption):
@@ -54,7 +55,7 @@ class TrtUnet(sd_unet.SdUnet):
             dtype = self.nptype(self.engine.get_binding_dtype(binding))
 
             if binding in feed_dict:
-                shape = feed_dict[binding].shape
+                shape = Dims(feed_dict[binding].shape)
             else:
                 shape = self.trtcontext.get_binding_shape(binding_idx)
 
